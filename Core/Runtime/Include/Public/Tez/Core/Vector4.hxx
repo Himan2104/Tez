@@ -152,6 +152,10 @@ using Vector4u64 = Vector4<UInt64>;
 using Vector4f32 = Vector4<Float32>;
 using Vector4f64 = Vector4<Float64>;
 
+using Vector4i = Vector4i32;
+using Vector4u = Vector4u32;
+using Vector4f = Vector4f32;
+
 } // namespace Tez
 
 template <typename T>

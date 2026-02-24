@@ -30,7 +30,7 @@ using UInt64 = std::uint64_t;
 template <std::integral T>
 struct Limits
 {
-    static constexpr T min = std::numeric_limits<T>::min;
+    static constexpr T min = std::numeric_limits<T>::min();
     static constexpr T max = std::numeric_limits<T>::max();
 };
 

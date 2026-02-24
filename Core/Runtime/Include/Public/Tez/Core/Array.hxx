@@ -93,9 +93,9 @@ public:
     void PushBack(T&& value) { Base::push_back(std::move(value)); }
 
     template <typename... Args>
-    void EmplaceBack(Args&&... args)
+    T EmplaceBack(Args&&... args)
     {
-        Base::emplace_back(std::forward<Args>(args)...);
+        return Base::emplace_back(std::forward<Args>(args)...);
     }
 
     template <typename... Args>
@@ -203,5 +203,7 @@ public:
     {
         return Base::end();
     }
+
+    constexpr void Reserve(SizeType num) { Base::reserve(num); }
 };
 } // namespace Tez
