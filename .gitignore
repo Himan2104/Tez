@@ -18,6 +18,7 @@ mono_crash.*
 
 .zed/
 
+__*
 
 # Build results
 [Ll]og/
