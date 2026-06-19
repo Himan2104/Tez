@@ -34,6 +34,8 @@ struct Limits
     static constexpr T max = std::numeric_limits<T>::max();
 };
 
+using SizeT = size_t;
+
 #ifdef __STDCPP_FLOAT16_T__
 using Float16 = std::float16_t;
 #endif
