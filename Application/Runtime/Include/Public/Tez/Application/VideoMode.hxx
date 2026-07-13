@@ -1,9 +1,8 @@
 #pragma once
 
 #include <Tez/Core/Array.hxx>
+#include <Tez/Core/Math.hxx>
 #include <Tez/Core/Types.hxx>
-#include <Tez/Core/Vector2.hxx>
-#include <Tez/Core/Vector3.hxx>
 #include <format>
 #include <string>
 

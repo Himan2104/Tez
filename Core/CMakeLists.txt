@@ -6,4 +6,7 @@ tez_lib_target(Core
 
     PUBLIC_INCLUDES Runtime/Include/Public
 
+    PUBLIC_DEPENDENCIES
+        glm::glm
+
 )

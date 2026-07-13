@@ -1,0 +1,116 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 21,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "binaryDir": "${sourceDir}/Build/${presetName}",
+      "generator": "Ninja",
+      "cacheVariables": { "CMAKE_EXPORT_COMPILE_COMMANDS": "ON" }
+    },
+
+    { "name": "debug", "hidden": true, "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" } },
+    { "name": "release", "hidden": true, "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" } },
+    { "name": "profile", "hidden": true, "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo" } },
+
+    { "name": "gcc", "hidden": true, "cacheVariables": { "CMAKE_C_COMPILER": "gcc", "CMAKE_CXX_COMPILER": "g++" } },
+    { "name": "clang", "hidden": true, "cacheVariables": { "CMAKE_C_COMPILER": "clang", "CMAKE_CXX_COMPILER": "clang++" } },
+    { 
+      "name": "msvc", 
+      "hidden": true, 
+      "generator": "Visual Studio 17 2022", 
+      "architecture": "x64" 
+    },
+
+    { "name": "x64", "hidden": true, "architecture": "x64", "cacheVariables": { "ARCH_NAME": "x86_64" } },
+    { "name": "arm64", "hidden": true, "architecture": "arm64", "cacheVariables": { "ARCH_NAME": "arm64" } },
+
+    {
+      "name": "windows",
+      "hidden": true,
+      "inherits": "base",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" }
+
+    },
+    {
+      "name": "linux",
+      "hidden": true,
+      "inherits": "base",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" }
+    },
+    {
+      "name": "macos",
+      "hidden": true,
+      "inherits": "base",
+      "cacheVariables": { "CMAKE_OSX_ARCHITECTURES": "arm64;x86_64" }
+    },
+    {
+      "name": "android",
+      "hidden": true,
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_SYSTEM_NAME": "Android",
+        "ANDROID_NDK": "$env{ANDROID_NDK_HOME}",
+        "CMAKE_TOOLCHAIN_FILE": "$env{ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake",
+        "ANDROID_ABI": "arm64-v8a"
+      }
+    },
+    {
+      "name": "ios",
+      "hidden": true,
+      "inherits": "base",
+      "generator": "Xcode",
+      "cacheVariables": {
+        "CMAKE_SYSTEM_NAME": "iOS",
+        "CMAKE_OSX_ARCHITECTURES": "arm64"
+      }
+    },
+
+    { "name": "linux-x64-gcc-debug", "inherits": ["linux", "x64", "gcc", "debug"] },
+    { "name": "linux-x64-gcc-profile", "inherits": ["linux", "x64", "gcc", "profile"] },
+    { "name": "linux-x64-gcc-release", "inherits": ["linux", "x64", "gcc", "release"] },
+    { "name": "linux-x64-llvm-debug", "inherits": ["linux", "x64", "clang", "debug"] },
+    { "name": "linux-x64-llvm-profile", "inherits": ["linux", "x64", "clang", "profile"] },
+    { "name": "linux-x64-llvm-release", "inherits": ["linux", "x64", "clang", "release"] },
+    { "name": "linux-arm64-gcc-debug", "inherits": ["linux", "arm64", "gcc", "debug"] },
+    { "name": "linux-arm64-gcc-profile", "inherits": ["linux", "arm64", "gcc", "profile"] },
+    { "name": "linux-arm64-gcc-release", "inherits": ["linux", "arm64", "gcc", "release"] },
+    { "name": "linux-arm64-llvm-debug", "inherits": ["linux", "arm64", "clang", "debug"] },
+    { "name": "linux-arm64-llvm-profile", "inherits": ["linux", "arm64", "clang", "profile"] },
+    { "name": "linux-arm64-llvm-release", "inherits": ["linux", "arm64", "clang", "release"] },
+
+    { "name": "windows-x64-msvc-debug", "inherits": ["windows", "x64", "msvc", "debug"] },
+    { "name": "windows-x64-msvc-profile", "inherits": ["windows", "x64", "msvc", "profile"] },
+    { "name": "windows-x64-msvc-release", "inherits": ["windows", "x64", "msvc", "release"] },
+    { "name": "windows-x64-llvm-debug", "inherits": ["windows", "x64", "clang", "debug"] },
+    { "name": "windows-x64-llvm-profile", "inherits": ["windows", "x64", "clang", "profile"] },
+    { "name": "windows-x64-llvm-release", "inherits": ["windows", "x64", "clang", "release"] },
+    { "name": "windows-x64-gcc-debug", "inherits": ["windows", "x64", "gcc", "debug"] },
+    { "name": "windows-x64-gcc-profile", "inherits": ["windows", "x64", "gcc", "profile"] },
+    { "name": "windows-x64-gcc-release", "inherits": ["windows", "x64", "gcc", "release"] },
+    { "name": "windows-arm64-msvc-debug", "inherits": ["windows", "arm64", "msvc", "debug"] },
+    { "name": "windows-arm64-msvc-profile", "inherits": ["windows", "arm64", "msvc", "profile"] },
+    { "name": "windows-arm64-msvc-release", "inherits": ["windows", "arm64", "msvc", "release"] },
+
+    { "name": "android-arm64-release", "inherits": ["android", "release"] },
+    { "name": "ios-release", "inherits": ["ios", "release"] }
+  ],
+
+  "buildPresets": [
+    {
+      "name": "build-debug",
+      "configurePreset": "linux-x64-llvm-debug",
+      "configuration": "Debug"
+    },
+    {
+      "name": "build-release",
+      "configurePreset": "linux-x64-llvm-release",
+      "configuration": "Release"
+    }
+  ]
+}

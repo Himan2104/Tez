@@ -1,10 +1,9 @@
-#include "GLFW/glfw3.h"
-#include "Tez/Application/VideoMode.hxx"
-#include "Tez/Core/Array.hxx"
-#include "Tez/Core/Span.hxx"
-#include "Tez/Core/Vector2.hxx"
-#include "Tez/Core/Vector4.hxx"
+#include <GLFW/glfw3.h>
 #include <Tez/Application/Monitor.hxx>
+#include <Tez/Application/VideoMode.hxx>
+#include <Tez/Core/Array.hxx>
+#include <Tez/Core/Math.hxx>
+#include <Tez/Core/Span.hxx>
 #include <memory>
 #include <string_view>
 
@@ -19,30 +18,30 @@ public:
     {
     }
 
-    Vector2i GetPosition()
+    Vec2i GetPosition()
     {
-        Vector2i pos;
+        Vec2i pos;
         glfwGetMonitorPos(_monitor, &pos.x, &pos.y);
         return pos;
     }
 
-    Vector4i GetWorkArea()
+    Vec4i GetWorkArea()
     {
-        Vector4i workArea;
+        Vec4i workArea;
         glfwGetMonitorWorkarea(_monitor, &workArea.x, &workArea.y, &workArea.z, &workArea.w);
         return workArea;
     }
 
-    Vector2i GetPhysicalSize()
+    Vec2i GetPhysicalSize()
     {
-        Vector2i size;
+        Vec2i size;
         glfwGetMonitorPhysicalSize(_monitor, &size.x, &size.y);
         return size;
     }
 
-    Vector2f GetContentScale()
+    Vec2f GetContentScale()
     {
-        Vector2f scale;
+        Vec2f scale;
         glfwGetMonitorContentScale(_monitor, &scale.x, &scale.y);
         return scale;
     }
@@ -73,9 +72,7 @@ Monitor::Monitor(std::shared_ptr<MonitorImpl> monitorImpl)
 }
 
 Span<const VideoMode> Monitor::GetSupportedVideoModes() const
-{
-    return _monitorImpl->GetSupportedVideoModes();
-}
+{ return _monitorImpl->GetSupportedVideoModes(); }
 
 const DynamicArray<Monitor> Monitor::GetMonitors()
 {
@@ -90,8 +87,6 @@ const DynamicArray<Monitor> Monitor::GetMonitors()
 }
 
 Monitor Monitor::GetPrimaryMonitor()
-{
-    return Monitor(std::make_shared<MonitorImpl>(glfwGetPrimaryMonitor()));
-}
+{ return Monitor(std::make_shared<MonitorImpl>(glfwGetPrimaryMonitor())); }
 
 } // namespace Tez

@@ -16,7 +16,7 @@ public:
                                    props.title.c_str(), glfwGetPrimaryMonitor(), NULL);
     }
 
-    void SetVideoMode(VideoMode vm) { glfwWindowHint(GLFW_, int value); }
+    void SetVideoMode(VideoMode vm) { /*glfwWindowHint(GLFW_, int value);*/ }
 
 private:
     GLFWwindow* _window{nullptr};
