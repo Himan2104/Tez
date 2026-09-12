@@ -10,7 +10,6 @@
 
 namespace Tez
 {
-
 using Bool = bool;
 
 using Char = char;
@@ -27,6 +26,10 @@ using UInt16 = std::uint16_t;
 using UInt32 = std::uint32_t;
 using UInt64 = std::uint64_t;
 
+///
+/// @brief Compile-time minimum and maximum bounds for an integral type.
+/// @tparam T A type satisfying std::integral.
+///
 template <std::integral T>
 struct Limits
 {
@@ -56,6 +59,11 @@ using Float64 = double;
 using Float128 = std::float128_t;
 #endif
 
+///
+/// @brief Recovers the mangled name of a type at compile time.
+/// @tparam T The type whose name is required.
+/// @return std::string_view The demangled name of T.
+///
 template <typename T>
 constexpr std::string_view NameOf()
 {
@@ -74,6 +82,12 @@ constexpr std::string_view NameOf()
     return name.substr(start, end - start);
 }
 
+///
+/// @brief Produces a type-identifying hash for a type.
+/// @note Uses FNV1a over the demangled type name; stable within a build, not across builds.
+/// @tparam T The type to identify.
+/// @return UInt64 A 64-bit type identifier.
+///
 template <typename T>
 constexpr UInt64 TypeID()
 {

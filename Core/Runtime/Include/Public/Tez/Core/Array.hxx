@@ -3,114 +3,146 @@
 #include "Assert.hxx"
 #include "Optional.hxx"
 #include "Types.hxx"
-#include <functional>
+#include <Tez/Core/Memory.hxx>
+#include <initializer_list>
+#include <type_traits>
+#include <utility>
 
 namespace Tez
 {
+
 template <typename T, UInt64 size>
 class Array
 {
-private:
-    using FillPred = std::function<T(UInt64 index)>;
-
 public:
     constexpr void Fill(const T& value)
     {
-        for (int i = 0; i < size; i++) data[i] = value;
+        for (UInt64 i = 0; i < size; i++) data[i] = value;
     }
 
+    // Templated to avoid std::function overhead
+    template <typename FillPred>
     constexpr void Fill(FillPred pred)
     {
-        for (int i = 0; i < size; i++) data[i] = pred(i);
+        for (UInt64 i = 0; i < size; i++) data[i] = pred(i);
     }
 
-    // operators
     [[nodiscard]] constexpr T& operator[](UInt64 pos) noexcept
     {
-        TEZ_SOFT_ASSERT(pos > size, "Index Out of Bounds!", T());
+        TEZ_SOFT_ASSERT(pos < size, "Index Out of Bounds!", data[0]);
         return data[pos];
     }
 
     [[nodiscard]] constexpr const T& operator[](UInt64 pos) const noexcept
     {
-        TEZ_SOFT_ASSERT(pos > size, "Index Out of Bounds!", T());
+        TEZ_SOFT_ASSERT(pos < size, "Index Out of Bounds!", data[0]);
         return data[pos];
     }
 
     [[nodiscard]] constexpr T* GetData() noexcept { return data; }
     [[nodiscard]] constexpr const T* GetData() const noexcept { return data; }
 
+    [[nodiscard]] constexpr T* begin() noexcept { return data; }
+    [[nodiscard]] constexpr const T* begin() const noexcept { return data; }
+    [[nodiscard]] constexpr T* end() noexcept { return data + size; }
+    [[nodiscard]] constexpr const T* end() const noexcept { return data + size; }
+
 private:
     T data[size];
 };
 
-template <typename T, typename Allocator = std::allocator<T>>
-class DynamicArray : private std::vector<T, Allocator>
+template <typename T>
+class DynamicArray
 {
-private:
-    using Base     = std::vector<T, Allocator>;
-    using SizeType = typename Base::size_type;
-
 public:
     using value_type     = T;
-    using allocator_type = Allocator;
-    using iterator       = typename Base::iterator;
-    using const_iterator = typename Base::const_iterator;
-
-    using Base::begin;
-    using Base::end;
+    using SizeType       = UInt64;
+    using iterator       = T*;
+    using const_iterator = const T*;
 
     constexpr DynamicArray() = default;
 
-    constexpr explicit DynamicArray(const Allocator& alloc)
-        : Base(alloc)
+    constexpr DynamicArray(std::initializer_list<T> init)
     {
+        Reserve(init.size());
+        T* pData = _handle.Get();
+        for (const auto& val : init) { new (&pData[_size++]) T(val); }
     }
 
-    constexpr DynamicArray(std::initializer_list<T> init, const Allocator& alloc = Allocator{})
-        : Base(init, alloc)
+    constexpr explicit DynamicArray(SizeType count)
     {
+        Reserve(count);
+        T* pData = _handle.Get();
+        for (SizeType i = 0; i < count; ++i) { new (&pData[i]) T(); }
+        _size = count;
     }
 
-    constexpr explicit DynamicArray(SizeType count, const Allocator& alloc = Allocator{})
-        : Base(count, alloc)
+    constexpr DynamicArray(SizeType count, const T& value)
     {
+        Reserve(count);
+        T* pData = _handle.Get();
+        for (SizeType i = 0; i < count; ++i) { new (&pData[i]) T(value); }
+        _size = count;
     }
 
-    constexpr DynamicArray(SizeType count, const T& value, const Allocator& alloc = Allocator{})
-        : Base(count, value, alloc)
+    ~DynamicArray() { Clear(); }
+
+    void PushBack(const T& value)
     {
+        if (_size == _capacity) Reserve(_capacity == 0 ? 8 : _capacity * 2);
+        new (&_handle.Get()[_size]) T(value);
+        _size++;
     }
 
-    [[nodiscard]]
-    constexpr const Allocator& GetAllocator() const noexcept
+    void PushBack(T&& value)
     {
-        return Base::get_allocator();
+        if (_size == _capacity) Reserve(_capacity == 0 ? 8 : _capacity * 2);
+        new (&_handle.Get()[_size]) T(std::move(value));
+        _size++;
     }
-
-    void PushBack(const T& value) { Base::push_back(value); }
-
-    void PushBack(T&& value) { Base::push_back(std::move(value)); }
 
     template <typename... Args>
-    T EmplaceBack(Args&&... args)
+    T& EmplaceBack(Args&&... args)
     {
-        return Base::emplace_back(std::forward<Args>(args)...);
+        if (_size == _capacity) Reserve(_capacity == 0 ? 8 : _capacity * 2);
+        T* pData = _handle.Get();
+        new (&pData[_size]) T(std::forward<Args>(args)...);
+        return pData[_size++];
     }
 
     template <typename... Args>
-    typename Base::iterator Emplace(const_iterator pos, Args&&... args)
+    iterator Emplace(const_iterator pos, Args&&... args)
     {
-        return Base::emplace(pos, std::forward<Args>(args)...);
+        T* pData       = _handle.Get();
+        SizeType index = pos - pData;
+        TEZ_SOFT_ASSERT(index <= _size, "Emplace Out of Bounds!", pData);
+
+        if (_size == _capacity)
+        {
+            Reserve(_capacity == 0 ? 8 : _capacity * 2);
+            pData = _handle.Get();
+        }
+
+        for (SizeType i = _size; i > index; --i)
+        {
+            new (&pData[i]) T(std::move(pData[i - 1]));
+            pData[i - 1].~T();
+        }
+
+        new (&pData[index]) T(std::forward<Args>(args)...);
+        _size++;
+        return pData + index;
     }
 
     [[nodiscard]]
     Optional<T> PopBack() noexcept
     {
-        if (Base::empty()) return std::nullopt;
+        if (IsEmpty()) return std::nullopt;
 
-        T value = std::move(Base::back());
-        Base::pop_back();
+        T* pData = _handle.Get();
+        _size--;
+        T value = std::move(pData[_size]);
+        pData[_size].~T();
 
         if constexpr (std::is_pointer_v<T>)
             return value ? std::move(value) : std::nullopt;
@@ -118,92 +150,83 @@ public:
             return std::move(value);
     }
 
-    constexpr void Clear() noexcept { Base::clear(); }
-
-    [[nodiscard]]
-    constexpr SizeType Size() const noexcept
+    constexpr void Clear() noexcept
     {
-        return Base::size();
+        if constexpr (!std::is_trivially_destructible_v<T>)
+        {
+            T* pData = _handle.Get();
+            if (pData)
+            {
+                for (SizeType i = 0; i < _size; ++i) { pData[i].~T(); }
+            }
+        }
+        _size = 0;
     }
 
-    [[nodiscard]]
-    constexpr bool IsEmpty() const noexcept
-    {
-        return Base::empty();
-    }
+    [[nodiscard]] constexpr SizeType Size() const noexcept { return _size; }
+    [[nodiscard]] constexpr bool IsEmpty() const noexcept { return _size == 0; }
 
     [[nodiscard]] constexpr T& operator[](SizeType index) noexcept
     {
-        TEZ_SOFT_ASSERT(index > Base::size(), "Index Out of Bounds!", T());
-        return Base::operator[](index);
+        T* pData = _handle.Get();
+        TEZ_SOFT_ASSERT(index < _size, "Index Out of Bounds!", pData[0]);
+        return pData[index];
     }
 
     constexpr const T& operator[](SizeType index) const noexcept
     {
-        TEZ_SOFT_ASSERT(index > Base::size(), "Index Out of Bounds!", T());
-        return Base::operator[](index);
+        const T* pData = _handle.GetConst();
+        TEZ_SOFT_ASSERT(index < _size, "Index Out of Bounds!", pData[0]);
+        return pData[index];
     }
 
-    [[nodiscard]]
-    constexpr T& Front() noexcept
+    [[nodiscard]] constexpr T& Front() noexcept { return _handle.Get()[0]; }
+    [[nodiscard]] constexpr const T& Front() const noexcept { return _handle.GetConst()[0]; }
+
+    [[nodiscard]] constexpr T& Back() noexcept { return _handle.Get()[_size - 1]; }
+    [[nodiscard]] constexpr const T& Back() const noexcept { return _handle.GetConst()[_size - 1]; }
+
+    [[nodiscard]] constexpr T* Data() noexcept { return _handle.Get(); }
+    [[nodiscard]] constexpr const T* Data() const noexcept { return _handle.GetConst(); }
+
+    [[nodiscard]] constexpr iterator Begin() noexcept { return _handle.Get(); }
+    [[nodiscard]] constexpr const_iterator Begin() const noexcept { return _handle.GetConst(); }
+
+    [[nodiscard]] constexpr iterator End() noexcept { return _handle.Get() + _size; }
+    [[nodiscard]] constexpr const_iterator End() const noexcept
+    { return _handle.GetConst() + _size; }
+
+    [[nodiscard]] constexpr iterator begin() noexcept { return Begin(); }
+    [[nodiscard]] constexpr const_iterator begin() const noexcept { return Begin(); }
+
+    [[nodiscard]] constexpr iterator end() noexcept { return End(); }
+    [[nodiscard]] constexpr const_iterator end() const noexcept { return End(); }
+
+    constexpr void Reserve(SizeType newCapacity)
     {
-        return Base::front();
+        if (newCapacity <= _capacity) return;
+
+        Handle<T> newHandle = NewArray<T>(newCapacity);
+        T* newData          = newHandle.Get();
+
+        if (_handle.IsValid())
+        {
+            T* oldData = _handle.Get();
+            for (SizeType i = 0; i < _size; ++i)
+            {
+                new (&newData[i]) T(std::move(oldData[i]));
+                oldData[i].~T();
+            }
+        }
+
+        _handle   = newHandle;
+        _capacity = newCapacity;
     }
 
-    [[nodiscard]]
-    constexpr const T& Front() const noexcept
-    {
-        return Base::front();
-    }
-
-    [[nodiscard]]
-    constexpr T& Back() noexcept
-    {
-        return Base::back();
-    }
-
-    [[nodiscard]]
-    constexpr const T& Back() const noexcept
-    {
-        return Base::back();
-    }
-
-    [[nodiscard]]
-    constexpr T* Data() noexcept
-    {
-        return Base::data();
-    }
-
-    [[nodiscard]]
-    constexpr const T* Data() const noexcept
-    {
-        return Base::data();
-    }
-
-    [[nodiscard]]
-    constexpr iterator Begin() noexcept
-    {
-        return Base::begin();
-    }
-
-    [[nodiscard]]
-    constexpr const_iterator Begin() const noexcept
-    {
-        return Base::begin();
-    }
-
-    [[nodiscard]]
-    constexpr iterator End() noexcept
-    {
-        return Base::end();
-    }
-
-    [[nodiscard]]
-    constexpr const_iterator End() const noexcept
-    {
-        return Base::end();
-    }
-
-    constexpr void Reserve(SizeType num) { Base::reserve(num); }
+private:
+    Handle<T> _handle{};
+    SizeType _size{0};
+    SizeType _capacity{0};
 };
+
 } // namespace Tez

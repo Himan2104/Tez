@@ -1,41 +1,64 @@
 #include <Tez/Core/Memory.hxx>
-
-#ifdef _WIN32
-    #include <windows.h>
-#else
-    #include <sys/mman.h>
-    #include <unistd.h>
-#endif
+#include <cstring>
+#include <mutex>
 
 namespace Tez
 {
 
-void* VirtualMemory::ReserveAndCommit(size_t size)
+Chunk::Chunk(size_t capacity)
+    : _capacity(capacity)
+    , _offset(0)
+#ifdef TEZ_ENABLE_MEMORY_STATS
+    , _peakUsage(0)
+    , _allocationCount(0)
+#endif
+{ _buffer = new uint8_t[_capacity]; }
+
+Chunk::~Chunk() { delete[] _buffer; }
+
+void Chunk::Resize(size_t newCapacity)
 {
-#ifdef _WIN32
-    return VirtualAlloc(nullptr, size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-#else
-    void* ptr = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-    return ptr == MAP_FAILED ? nullptr : ptr;
+    std::unique_lock lock(_bufferMutex);
+
+    // Double-check condition to prevent concurrent resize overlaps from CAS loops
+    if (newCapacity <= _capacity) return;
+
+    uint8_t* newBuffer  = new uint8_t[newCapacity];
+    size_t currentUsage = _offset.load(std::memory_order_relaxed);
+
+    if (_buffer && currentUsage > 0) { std::memcpy(newBuffer, _buffer, currentUsage); }
+    delete[] _buffer;
+
+    _buffer   = newBuffer;
+    _capacity = newCapacity;
+}
+
+void Chunk::Reset()
+{
+    _offset.store(0, std::memory_order_release);
+#ifdef TEZ_ENABLE_MEMORY_STATS
+    _allocationCount.store(0, std::memory_order_relaxed);
 #endif
 }
 
-void VirtualMemory::Free(void* ptr, size_t size)
+#ifdef TEZ_ENABLE_MEMORY_STATS
+const ChunkStats& Chunk::GetStats() const
 {
-#ifdef _WIN32
-    VirtualFree(ptr, 0, MEM_RELEASE);
-#else
-    munmap(ptr, size);
-#endif
+    std::shared_lock lock(_bufferMutex); // Ensures _capacity sync
+    _stats.totalCapacity   = _capacity;
+    _stats.allocatedBytes  = _offset.load(std::memory_order_relaxed);
+    _stats.peakBytes       = _peakUsage.load(std::memory_order_relaxed);
+    _stats.allocationCount = _allocationCount.load(std::memory_order_relaxed);
+    return _stats;
 }
+#endif
 
-std::unordered_map<uint64_t, IPool*> MemoryManager::_globalPools;
-std::mutex MemoryManager::_registryMutex;
+size_t Chunk::AlignForward(size_t currentOffset, size_t alignment) const
+{ return (currentOffset + (alignment - 1)) & ~(alignment - 1); }
 
-Byte* MemoryManager::AllocateRawPage(size_t sizeInBytes)
-{ return static_cast<Byte*>(VirtualMemory::ReserveAndCommit(sizeInBytes)); }
-
-void MemoryManager::FreeRawPage(Byte* ptr, size_t sizeInBytes)
-{ VirtualMemory::Free(ptr, sizeInBytes); }
-
+MemoryManager& MemoryManager::Instance()
+{
+    static MemoryManager instance;
+    return instance;
+}
 } // namespace Tez
